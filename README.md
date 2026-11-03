@@ -54,44 +54,106 @@ Type the number, tool name, or 'q' to quit:
 
 ---
 
-## ⚙️ Centralized Path Constants & Shortcuts (`ragent/config.py`)
+## ⚙️ How to Set & Customize Constants (`ragent/config.py`)
 
-All standard operational paths, login scripts (`<ocPath>/ocLogin.sh`, `<vault_path>/vaultLogin.sh`), and shortcuts are centralized in one single function in [`ragent/config.py`](file:///home/ubuntu/code/github/raviautopilot/rWork/shared/ragent/ragent/config.py):
+All common script locations (such as `<ocPath>/ocLogin.sh` and `<vault_path>/vaultLogin.sh`), directory paths, and shortcuts are centralized in a single function inside [`ragent/config.py`](file:///home/ubuntu/code/github/raviautopilot/rWork/shared/ragent/ragent/config.py). 
+
+This ensures you **never have to re-type long script paths** or modify paths across multiple files.
+
+### Method 1: Permanent Setup (Recommended)
+Open [`ragent/config.py`](file:///home/ubuntu/code/github/raviautopilot/rWork/shared/ragent/ragent/config.py) and update the default paths directly in `get_constants()`:
 
 ```python
 def get_constants() -> AgentConstants:
-    # 1. OpenShift (<ocPath>/ocLogin.sh)
-    oc_path = ...
-    oc_login_script = oc_path / "ocLogin.sh"
+    base_dir = Path(__file__).resolve().parent.parent
 
-    # 2. HashiCorp Vault (<vault_path>/vaultLogin.sh)
-    vault_path = ...
-    vault_login_script = vault_path / "vaultLogin.sh"
+    # 1. Base Scripts Directory
+    default_scripts_dir = Path("/home/ubuntu/code/github/my-tools/scripts")
     ...
+
+    # 2. OpenShift (<ocPath>/ocLogin.sh)
+    default_oc_path = Path("/home/ubuntu/code/github/openshift-tools")
+    oc_path = Path(os.environ.get("OC_PATH", str(default_oc_path)))
+    
+    default_oc_login = oc_path / "ocLogin.sh"
+    oc_login_script = Path(os.environ.get("OC_LOGIN_SCRIPT", str(default_oc_login)))
+
+    # 3. HashiCorp Vault (<vault_path>/vaultLogin.sh)
+    default_vault_path = Path("/home/ubuntu/code/github/vault-tools")
+    vault_path = Path(os.environ.get("VAULT_PATH", str(default_vault_path)))
+
+    default_vault_login = vault_path / "vaultLogin.sh"
+    vault_login_script = Path(os.environ.get("VAULT_LOGIN_SCRIPT", str(default_vault_login)))
+
+    # 4. Adding Custom Script Shortcuts
+    shortcuts = {
+        "oc-login": {
+            "tool": "bash",
+            "script": str(oc_login_script),
+            "description": "Log into OpenShift cluster using ocLogin.sh",
+        },
+        "vault-login": {
+            "tool": "bash",
+            "script": str(vault_login_script),
+            "description": "Authenticate with HashiCorp Vault using vaultLogin.sh",
+        },
+        # Add your own new shortcuts here:
+        "deploy": {
+            "tool": "bash",
+            "script": "/path/to/deploy.sh",
+            "description": "Run standard deployment script",
+        },
+    }
 ```
 
-### Launching Configured Scripts
+---
 
-**In Interactive Mode:**
-- Type `o` at the main menu to immediately run `ocLogin.sh`.
-- Type `v` at the main menu to immediately run `vaultLogin.sh`.
-- When executing a script file under `openshift` or `vault`, the prompt defaults to your pre-configured path so you can simply press `[Enter]` to run it without re-typing.
+### Method 2: Dynamic Shell Overrides (Environment Variables)
+If you want to temporarily point to different directories without editing Python files (e.g. across different machines or environments), export these environment variables in your terminal:
 
-**From the Terminal (CLI Shortcuts):**
 ```bash
-./ragent.py --oc-login
-./ragent.py --vault-login
-./ragent.py --shortcut oc-login
+# Override OpenShift paths:
+export OC_PATH="/path/to/my/openshift"
+export OC_LOGIN_SCRIPT="/path/to/my/openshift/ocLogin.sh"
+
+# Override Vault paths:
+export VAULT_PATH="/path/to/my/vault"
+export VAULT_LOGIN_SCRIPT="/path/to/my/vault/vaultLogin.sh"
+
+# Override root scripts directory:
+export RAGENT_SCRIPTS_DIR="/path/to/my/scripts"
 ```
 
-**Environment Variable Overrides (Optional):**
-You can also override the defaults dynamically in your shell without editing files:
-```bash
-export OC_PATH="/custom/cluster/tools"
-export OC_LOGIN_SCRIPT="/custom/cluster/tools/ocLogin.sh"
-export VAULT_PATH="/custom/vault/tools"
-export VAULT_LOGIN_SCRIPT="/custom/vault/tools/vaultLogin.sh"
-```
+---
+
+### How RAgent Uses Your Constants
+
+1. **Interactive Main Menu (1-Key Shortcuts):**
+   When you launch `./ragent.py`, your shortcuts appear right in the main menu:
+   ```text
+   ⚡ Configured Shortcuts (Single Source of Truth):
+    o) OpenShift Login  (/path/to/ocLogin.sh)
+    v) Vault Login      (/path/to/vaultLogin.sh)
+   ```
+   Simply type `o` or `v` to run the respective login script immediately!
+
+2. **Pre-Filled Defaults in Tool Sub-Menus:**
+   When you select `openshift` or `vault` from the menu:
+   - Option `0)` provides a 1-click launch for the configured script.
+   - If you select Option `2) Execute a script file`, the prompt automatically suggests your configured script:
+     ```text
+     Enter path to script file (Press [Enter] to use default: /path/to/ocLogin.sh):
+     Script path > [Press Enter]
+     Using configured default: /path/to/ocLogin.sh
+     ```
+
+3. **Direct CLI Invocation:**
+   You can also launch your configured scripts directly from terminal commands:
+   ```bash
+   ./ragent.py --oc-login
+   ./ragent.py --vault-login
+   ./ragent.py --shortcut deploy
+   ```
 
 ---
 
