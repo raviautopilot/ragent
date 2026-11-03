@@ -63,6 +63,27 @@ class TestCommandExecutor(unittest.TestCase):
         self.assertEqual(res.exit_code, 0)
         self.assertIn('"ragent"', res.stdout)
 
+    def test_run_command_with_stderr(self):
+        status = self.validator.check_tool("bash")
+        self.assertTrue(status.available)
+
+        # Test command outputting to stderr
+        res = self.executor.run_command(status, "-c 'echo \"Warning output\" >&2'")
+        self.assertEqual(res.exit_code, 0)
+        self.assertIn("Warning output", res.stderr)
+
+    def test_run_script_with_stderr(self):
+        status = self.validator.check_tool("bash")
+        self.assertTrue(status.available)
+
+        script_file = Path(self.temp_dir) / "stderr_script.sh"
+        script_file.write_text("#!/bin/bash\necho 'Standard error message' >&2\nexit 1\n")
+        script_file.chmod(0o755)
+
+        res = self.executor.run_script(status, script_path=script_file)
+        self.assertEqual(res.exit_code, 1)
+        self.assertIn("Standard error message", res.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 import time
 from typing import Dict, List, Optional, Union
 
@@ -62,9 +63,11 @@ class CommandExecutor:
         binary = tool_status.path
         parsed_args = shlex.split(args_str) if args_str.strip() else []
 
-        # If shell tool (bash/zsh), run with -c if compound expression
-        if tool_status.name in ["bash", "zsh"] and any(
-            c in args_str for c in ["|", ";", "&&", "||", ">", "<", "$"]
+        # If shell tool (bash/zsh), run with -c if compound expression and not already starting with -c
+        if (
+            tool_status.name in ["bash", "zsh"]
+            and any(c in args_str for c in ["|", ";", "&&", "||", ">", "<", "$"])
+            and not args_str.startswith("-c")
         ):
             cmd = [binary, "-c", args_str]
             display_cmd = f"{binary} -c '{args_str}'"
