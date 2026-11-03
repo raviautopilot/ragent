@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragent"
+version = "1.0.0"
+description = "Friendly Interactive Developer Assistant for CLI & Script Execution"
+authors = [
+    { name = "Developer Experience Team" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+ragent = "ragent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ragent*"]
+

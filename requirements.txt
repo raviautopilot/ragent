@@ -1,0 +1,3 @@
+# RAgent requires standard Python 3.8+ library modules.
+# No external dependencies required for core execution.
+
