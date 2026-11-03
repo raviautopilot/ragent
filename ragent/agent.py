@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 from typing import Optional
 
+from .config import constants, get_constants
 from .executor import CommandExecutor, executor
 from .logger import Colors, logger
 from .validator import ToolStatus, ToolValidator, validator
@@ -51,6 +52,12 @@ class DeveloperAgent:
                     self.logger.info("Developer session terminated normally.")
                     break
 
+                # Check if developer selected a pre-configured shortcut
+                if selected_tool.startswith("shortcut:"):
+                    shortcut_key = selected_tool.split(":", 1)[1]
+                    self.run_shortcut_script(shortcut_key)
+                    continue
+
                 # Validate tool availability
                 status = self.validate_and_display_tool(selected_tool)
                 if not status.available:
@@ -66,6 +73,27 @@ class DeveloperAgent:
                 )
                 self.logger.warn("Session received SIGINT/EOF interrupt.")
                 break
+
+    def run_shortcut_script(self, shortcut_name: str) -> None:
+        """Executes a pre-configured script from constants directly."""
+        shortcut = constants.get_shortcut(shortcut_name)
+        if not shortcut:
+            self.logger.error(f"Shortcut '{shortcut_name}' not found.")
+            return
+
+        tool_name = shortcut.get("tool", "bash")
+        script_path = shortcut.get("script", "")
+        desc = shortcut.get("description", shortcut_name)
+
+        print(f"\n{Colors.CYAN}{Colors.BOLD}⚡ Executing Configured Shortcut: {desc}{Colors.RESET}")
+        print(f"  {Colors.BOLD}Script:{Colors.RESET} {script_path}")
+
+        status = self.validator.check_tool(tool_name)
+        if not status.available:
+            self.logger.error(f"Cannot run shortcut: Tool '{tool_name}' not available.")
+            return
+
+        self.executor.run_script(status, script_path=script_path)
 
     def prompt_tool_selection(self) -> Optional[str]:
         """Displays tool options and prompts developer for which application to use."""
@@ -92,6 +120,9 @@ class DeveloperAgent:
                 f"  {Colors.BOLD}{idx:2d}){Colors.RESET} {t.name:<12} {status_icon}{version_info}"
             )
 
+        print(f"\n  {Colors.BOLD}⚡ Configured Shortcuts (Single Source of Truth):{Colors.RESET}")
+        print(f"  {Colors.BOLD} o){Colors.RESET} OpenShift Login  {Colors.DIM}({constants.oc_login_script}){Colors.RESET}")
+        print(f"  {Colors.BOLD} v){Colors.RESET} Vault Login      {Colors.DIM}({constants.vault_login_script}){Colors.RESET}")
         print(f"  {Colors.BOLD} c){Colors.RESET} Custom CLI binary")
         print(f"  {Colors.BOLD} q){Colors.RESET} Exit")
 
@@ -112,6 +143,13 @@ class DeveloperAgent:
 
             if choice in ["q", "quit", "exit"]:
                 return None
+
+            # Shortcut matches
+            if choice in ["o", "oc-login", "oclogin"]:
+                return "shortcut:oc-login"
+
+            if choice in ["v", "vault-login", "vaultlogin"]:
+                return "shortcut:vault-login"
 
             if choice in ["c", "custom"]:
                 custom_name = input(
