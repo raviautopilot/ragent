@@ -220,10 +220,17 @@ class DeveloperAgent:
 
     def run_tool_session(self, tool_status: ToolStatus) -> None:
         """Action loop for a validated tool."""
+        # Check if this tool has a pre-configured script in constants
+        default_script = self._get_tool_default_script(tool_status.name)
+
         while True:
             print(
                 f"\n{Colors.BOLD}{Colors.WHITE}Action for '{tool_status.name}':{Colors.RESET}"
             )
+            if default_script:
+                print(
+                    f"  {Colors.BOLD}0){Colors.RESET} {Colors.GREEN}⚡ Quick Launch: {default_script.name}{Colors.RESET} {Colors.DIM}({default_script}){Colors.RESET}"
+                )
             print(
                 f"  {Colors.BOLD}1){Colors.RESET} Execute command / query (e.g. arguments or script expression)"
             )
@@ -234,7 +241,7 @@ class DeveloperAgent:
             try:
                 action = (
                     input(
-                        f"\n{Colors.CYAN}{Colors.BOLD}[{tool_status.name}] Select action (1-4) > {Colors.RESET}"
+                        f"\n{Colors.CYAN}{Colors.BOLD}[{tool_status.name}] Select action > {Colors.RESET}"
                     )
                     .strip()
                     .lower()
@@ -246,14 +253,24 @@ class DeveloperAgent:
                 break
             elif action in ["4", "q", "quit", "exit"]:
                 sys.exit(0)
+            elif action == "0" and default_script:
+                self.executor.run_script(tool_status, script_path=default_script)
             elif action == "1":
                 self._handle_command_action(tool_status)
             elif action == "2":
-                self._handle_script_action(tool_status)
+                self._handle_script_action(tool_status, default_script=default_script)
             else:
                 print(
-                    f"{Colors.YELLOW}Invalid option. Please choose 1, 2, 3, or 4.{Colors.RESET}"
+                    f"{Colors.YELLOW}Invalid option. Please choose from the available actions.{Colors.RESET}"
                 )
+
+    def _get_tool_default_script(self, tool_name: str) -> Optional[Path]:
+        """Resolves configured default script for specific tools."""
+        if tool_name in ["oc", "openshift"]:
+            return constants.oc_login_script
+        elif tool_name == "vault":
+            return constants.vault_login_script
+        return None
 
     def _handle_command_action(self, tool_status: ToolStatus) -> None:
         """Prompts for and executes an ad-hoc command."""
@@ -282,9 +299,17 @@ class DeveloperAgent:
         # Execute and log
         self.executor.run_command(tool_status, cmd_input)
 
-    def _handle_script_action(self, tool_status: ToolStatus) -> None:
-        """Prompts for and executes a script file."""
-        print(f"\n{Colors.DIM}Enter path to script file:{Colors.RESET}")
+    def _handle_script_action(
+        self, tool_status: ToolStatus, default_script: Optional[Path] = None
+    ) -> None:
+        """Prompts for and executes a script file, with optional default pre-filled."""
+        if default_script:
+            print(
+                f"\n{Colors.DIM}Enter path to script file (Press [Enter] to use default: {default_script}):{Colors.RESET}"
+            )
+        else:
+            print(f"\n{Colors.DIM}Enter path to script file:{Colors.RESET}")
+
         try:
             script_path_str = input(
                 f"{Colors.CYAN}Script path > {Colors.RESET}"
@@ -293,10 +318,14 @@ class DeveloperAgent:
             return
 
         if not script_path_str:
-            print(
-                f"{Colors.YELLOW}No script path provided. Action cancelled.{Colors.RESET}"
-            )
-            return
+            if default_script:
+                script_path_str = str(default_script)
+                print(f"{Colors.CYAN}Using configured default: {script_path_str}{Colors.RESET}")
+            else:
+                print(
+                    f"{Colors.YELLOW}No script path provided. Action cancelled.{Colors.RESET}"
+                )
+                return
 
         # Optional script arguments
         try:
