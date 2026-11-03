@@ -94,3 +94,4 @@ def get_constants() -> AgentConstants:
 
 # Global singleton instance for quick access
 constants = get_constants()
+
