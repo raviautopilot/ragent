@@ -8,6 +8,7 @@ import sys
 from typing import List, Optional
 
 from .agent import DeveloperAgent
+from .config import constants
 from .executor import executor
 from .logger import Colors, logger
 from .validator import validator
@@ -57,6 +58,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--list",
         action="store_true",
         help="List all supported tools in catalog.",
+    )
+
+    parser.add_argument(
+        "--oc-login",
+        action="store_true",
+        help=f"Quick launch OpenShift login script ({constants.oc_login_script}).",
+    )
+
+    parser.add_argument(
+        "--vault-login",
+        action="store_true",
+        help=f"Quick launch HashiCorp Vault login script ({constants.vault_login_script}).",
+    )
+
+    parser.add_argument(
+        "--shortcut",
+        type=str,
+        help="Execute a pre-configured script shortcut by name (e.g. oc-login, vault-login).",
     )
 
     parser.add_argument(
@@ -116,6 +135,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Health check flag
     if args.check or args.list:
         return run_healthcheck()
+
+    # Pre-configured script shortcuts
+    shortcut_name = None
+    if args.oc_login:
+        shortcut_name = "oc-login"
+    elif args.vault_login:
+        shortcut_name = "vault-login"
+    elif args.shortcut:
+        shortcut_name = args.shortcut
+
+    if shortcut_name:
+        agent = DeveloperAgent()
+        agent.run_shortcut_script(shortcut_name)
+        return 0
 
     # Direct execution mode
     if args.tool:
